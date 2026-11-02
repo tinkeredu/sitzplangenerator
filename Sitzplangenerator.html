@@ -95,6 +95,21 @@
         .armed-banner { display: none; width: 100%; text-align: center; font-size: 12px; color: var(--success); font-weight: bold; margin-top: -6px; }
         .armed-banner.active { display: block; }
 
+        /* Einführungsassistent */
+        .wizard-overlay { display: none; position: fixed; inset: 0; background: rgba(30, 41, 59, 0.55); z-index: 200; justify-content: center; align-items: center; }
+        .wizard-overlay.active { display: flex; }
+        .wizard-card { display: none; background: white; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.35); width: 420px; max-width: 92vw; padding: 24px; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 300; }
+        .wizard-card.active { display: block; }
+        .wizard-card h2 { margin: 0 0 10px 0; font-size: 19px; color: var(--secondary); }
+        .wizard-card p { margin: 0 0 16px 0; font-size: 14px; line-height: 1.55; color: #444; }
+        .wizard-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 16px; }
+        .wizard-dot { width: 8px; height: 8px; border-radius: 50%; background: #d5dbdb; }
+        .wizard-dot.active { background: var(--primary); }
+        .wizard-nav { display: flex; justify-content: space-between; align-items: center; }
+        .wizard-nav .left, .wizard-nav .right { display: flex; gap: 8px; }
+        .wizard-highlight { outline: 3px solid var(--primary) !important; outline-offset: 2px; border-radius: 8px; position: relative; z-index: 201; box-shadow: 0 0 18px 4px rgba(52, 152, 219, 0.6); }
+        .wizard-close { position: absolute; top: 10px; right: 12px; border: none; background: transparent; font-size: 18px; color: #999; cursor: pointer; }
+
         @media (max-width: 1100px) {
             body { flex-direction: column; height: auto; }
             .sidebar.left, .sidebar.right { width: 100%; }
@@ -113,7 +128,7 @@
 <body>
 
 <div class="sidebar left" id="leftSidebar">
-    <details open>
+    <details open id="secKlassenliste">
         <summary>1. Klassenliste & Drag/Drop</summary>
 
         <div class="form-row" style="margin-top: 10px;">
@@ -127,7 +142,7 @@
         <div class="student-pool" id="studentPool" ondrop="dropPool(event)" ondragover="allowDrop(event)"></div>
     </details>
 
-    <details open>
+    <details open id="secWuensche">
         <summary>2. Wünsche & Trennungen</summary>
         <select id="studentA" style="width:100%; margin-top:5px;" aria-label="Schüler:in A"><option value="">Schüler:in A</option></select>
         <select id="studentB" style="width:100%; margin-top:5px;" aria-label="Schüler:in B"><option value="">Schüler:in B</option></select>
@@ -146,7 +161,7 @@
         <div class="wish-list" id="relationsList"></div>
     </details>
 
-    <details>
+    <details id="secGruppen">
         <summary>3. Feste Gruppen (Ketten)</summary>
         <select id="g1" style="width:100%; margin-top:5px;" aria-label="Person 1"><option value="">Person 1</option></select>
         <select id="g2" style="width:100%; margin-top:5px;" aria-label="Person 2"><option value="">Person 2</option></select>
@@ -156,7 +171,7 @@
         <div class="group-list" id="groupsList"></div>
     </details>
 
-    <details>
+    <details id="secRaum">
         <summary>4. Raum & Algorithmus</summary>
         <div class="form-row">
             <label for="gridColsInput">Spalten (Breite):</label>
@@ -187,7 +202,7 @@
 </div>
 
 <div class="main">
-    <div class="controls">
+    <div class="controls" id="mainControls">
         <button onclick="toggleSidebar('left')" title="Linke Seitenleiste umschalten">☰ Menü</button>
 
         <button class="primary" id="btnGenerate" onclick="generatePlan(false)">Neu generieren</button>
@@ -200,6 +215,7 @@
         </div>
 
         <button onclick="toggleView()">Ansicht drehen</button>
+        <button onclick="openWizard()" title="Einführung starten" aria-label="Einführung starten" style="font-weight:bold;">?</button>
         <button onclick="undo()" title="Letzte Aktion rückgängig (Strg+Z)">↩ Rückgängig</button>
         <button onclick="exportData()">Speichern</button>
         <input type="file" id="loadJson" accept=".json" style="display:none;" onchange="importData(event)">
@@ -247,6 +263,23 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="wizard-overlay" id="wizardOverlay"></div>
+<div class="wizard-card" id="wizardCard" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
+    <button class="wizard-close" onclick="closeWizard()" aria-label="Schließen">✕</button>
+    <h2 id="wizardTitle"></h2>
+    <p id="wizardText"></p>
+    <div class="wizard-dots" id="wizardDots"></div>
+    <div class="wizard-nav">
+        <div class="left">
+            <button id="wizardSkip" onclick="closeWizard()">Überspringen</button>
+        </div>
+        <div class="right">
+            <button id="wizardPrev" onclick="wizardStep(-1)">Zurück</button>
+            <button id="wizardNext" class="primary" onclick="wizardStep(1)">Weiter</button>
+        </div>
+    </div>
+</div>
 
 <script>
     let ROWS = 8;
@@ -1422,6 +1455,95 @@
         reader.readAsText(file);
     }
 
+    // --- Einführungsassistent ---
+    const WIZARD_SEEN_KEY = 'sitzplangenerator_wizard_seen_v1';
+    const wizardSteps = [
+        {
+            title: 'Willkommen beim Sitzplangenerator! 👋',
+            text: 'Dieses Werkzeug verteilt deine Klasse automatisch auf Tische — unter Berücksichtigung von Sitzwünschen, Trennungen und festen Gruppen. Dieser Rundgang zeigt dir in 6 Schritten, wie es geht.',
+            target: null
+        },
+        {
+            title: 'Schritt 1: Klassenliste',
+            text: 'Gib hier die Namen deiner Schüler:innen ein — einzeln oder als Datei (.txt/.csv, ein Name pro Zeile). Sie erscheinen als Pillen im Pool. Per Drag & Drop oder Antippen setzt du sie später manuell auf Plätze.',
+            target: 'secKlassenliste'
+        },
+        {
+            title: 'Schritt 2: Tische anlegen',
+            text: 'Klicke ins Raster, um Tische zu setzen — jede Zelle = ein Platz. Rastergröße änderst du unter „4. Raum & Algorithmus". Tische kannst du jederzeit wieder löschen.',
+            target: 'gridContainer'
+        },
+        {
+            title: 'Schritt 3: Wünsche, Trennungen & Gruppen',
+            text: 'Lege fest, wer neben wem sitzen soll (3 Prioritäten), wer getrennt werden muss, und welche festen Gruppen zusammenbleiben. Linien zeigen die Beziehungen direkt im Plan an.',
+            target: 'secWuensche'
+        },
+        {
+            title: 'Schritt 4: Generieren & optimieren',
+            text: '„Neu generieren" verteilt alle Schüler:innen neu, „Ausgehend von hier optimieren" verbessert deine aktuelle Aufstellung. Du bekommst die 3 besten Lösungen zum Durchblättern. Der Live-Score rechts bewertet den Plan. Tipp: Pinne Schüler:innen, die sitzen bleiben sollen!',
+            target: 'mainControls'
+        },
+        {
+            title: 'Schritt 5: Sichern & teilen',
+            text: 'Speichern/Laden als JSON, Export als PNG-Bild und Drucken findest du in der Leiste oben. Dein Stand wird außerdem automatisch im Browser gespeichert — beim nächsten Besuch geht es weiter, wo du aufgehört hast. Strg+Z macht jeden Schritt rückgängig. Viel Erfolg!',
+            target: null
+        }
+    ];
+    let wizardIndex = -1;
+
+    function openWizard() {
+        wizardIndex = 0;
+        document.getElementById('wizardOverlay').classList.add('active');
+        document.getElementById('wizardCard').classList.add('active');
+        renderWizard();
+    }
+
+    function closeWizard() {
+        document.getElementById('wizardOverlay').classList.remove('active');
+        document.getElementById('wizardCard').classList.remove('active');
+        wizardIndex = -1;
+        setWizardHighlight(null);
+        try { localStorage.setItem(WIZARD_SEEN_KEY, '1'); } catch (e) {}
+    }
+
+    function wizardStep(delta) {
+        wizardIndex += delta;
+        if (wizardIndex >= wizardSteps.length) { closeWizard(); return; }
+        if (wizardIndex < 0) wizardIndex = 0;
+        renderWizard();
+    }
+
+    function setWizardHighlight(targetId) {
+        document.querySelectorAll('.wizard-highlight').forEach(el => el.classList.remove('wizard-highlight'));
+        if (!targetId) return;
+        const el = document.getElementById(targetId);
+        if (!el) return;
+        if (el.tagName === 'DETAILS') el.open = true;
+        el.classList.add('wizard-highlight');
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    function renderWizard() {
+        const step = wizardSteps[wizardIndex];
+        document.getElementById('wizardTitle').innerText = step.title;
+        document.getElementById('wizardText').innerText = step.text;
+        document.getElementById('wizardPrev').style.display = wizardIndex === 0 ? 'none' : '';
+        document.getElementById('wizardNext').innerText = wizardIndex === wizardSteps.length - 1 ? 'Fertig' : 'Weiter';
+        const dots = document.getElementById('wizardDots');
+        dots.innerHTML = '';
+        wizardSteps.forEach((_, i) => {
+            const d = document.createElement('div');
+            d.className = 'wizard-dot' + (i === wizardIndex ? ' active' : '');
+            dots.appendChild(d);
+        });
+        setWizardHighlight(step.target);
+    }
+
+    // Esc schließt den Assistenten
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && wizardIndex >= 0) closeWizard();
+    });
+
     // --- Start ---
     const restored = restoreState();
     initGrid(false);
@@ -1432,6 +1554,11 @@
         renderTables();
         toast('Letzter Stand wiederhergestellt.');
     }
+
+    // Assistent beim ersten Besuch automatisch zeigen
+    try {
+        if (!localStorage.getItem(WIZARD_SEEN_KEY)) setTimeout(openWizard, 400);
+    } catch (e) { /* kein localStorage → nicht automatisch zeigen */ }
 </script>
 
 </body>
