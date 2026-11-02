@@ -2,6 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sitzplangenerator - Pro Version</title>
     <style>
         :root {
@@ -13,47 +14,51 @@
             --table-pinned: #e67e22;
         }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: var(--bg); display: flex; gap: 20px; height: 100vh; box-sizing: border-box; }
-        
+
         /* Sidebars */
         .sidebar { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; transition: width 0.3s, padding 0.3s; }
         .sidebar.left { width: 350px; }
         .sidebar.right { width: 300px; }
         .sidebar.hidden { display: none !important; }
-        
+
         details { background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 10px; }
         summary { font-weight: bold; cursor: pointer; outline: none; font-size: 14px; }
-        
+
         /* Main Area */
         .main { flex-grow: 1; display: flex; flex-direction: column; align-items: center; overflow: hidden; position: relative; }
         .controls { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: center; width: 100%; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10; }
-        
+
         button, input[type="file"], input[type="number"], input[type="text"], select { padding: 6px 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 13px; }
         input[type="text"] { cursor: text; }
         button:hover { background: #eee; }
+        button:disabled { opacity: 0.5; cursor: wait; }
         button.primary { background: var(--primary); color: white; border: none; font-weight: bold; }
         button.primary:hover { background: #2980b9; }
         button.success { background: var(--success); color: white; border: none; font-weight: bold; }
         button.success:hover { background: #2ecc71; }
         input[type="number"] { width: 50px; }
-        
+
         /* Drag & Drop Pool */
         .student-pool { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; min-height: 50px; padding: 10px; background: #fff; border: 1px dashed #ccc; border-radius: 4px; }
         .student-pill { background: var(--primary); color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; cursor: grab; user-select: none; }
         .student-pill:active { cursor: grabbing; }
+        .student-pill.armed { background: var(--success); outline: 2px solid #1e8449; }
 
         /* Grid Wrapper & Canvas */
         .grid-wrapper { flex-grow: 1; width: 100%; display: flex; justify-content: center; align-items: center; overflow: auto; }
         .grid-container { position: relative; width: 800px; height: 600px; background: white; border: 2px solid #ccc; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.3s ease; flex-shrink: 0; transform-origin: center center; }
         .grid { display: grid; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 2; }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-        
+
         /* Tables */
         .cell { border: 1px dashed #eee; display: flex; justify-content: center; align-items: center; }
+        .cell.drop-target { background: #eafaf1; border: 2px dashed var(--success); }
         .table { width: 90%; height: 90%; background: var(--table-color); border-radius: 4px; display: flex; justify-content: center; align-items: center; cursor: pointer; text-align: center; font-size: 12px; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); user-select: none; transition: transform 0.2s, box-shadow 0.2s; }
         .table.pinned { background: var(--table-pinned); font-weight: bold; border: 2px solid #d35400; color: white; }
         .table:hover { transform: scale(1.05); }
         .table.selected { box-shadow: 0 0 10px 3px rgba(52, 152, 219, 0.8); border: 2px solid var(--primary); }
-        
+        .table.armed { box-shadow: 0 0 10px 3px rgba(39, 174, 96, 0.9); border: 2px solid var(--success); }
+
         /* View Toggle handled dynamically via JS + CSS */
         body.teacher-view-active .table { transform: rotate(-180deg); }
         body.teacher-view-active .table:hover { transform: rotate(-180deg) scale(1.05); }
@@ -62,7 +67,7 @@
         .form-row { display: flex; gap: 5px; margin-top: 5px; align-items: center; justify-content: space-between; font-size: 13px; }
         .wish-list, .group-list { font-size: 12px; margin-top: 10px; max-height: 120px; overflow-y: auto; }
         .list-item { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 4px 0; align-items: center; }
-        
+
         .solution-navigator { display: none; background: #e8f4f8; padding: 5px 15px; border-radius: 20px; border: 1px solid var(--primary); align-items: center; gap: 10px; margin-top: 10px; width: 100%; justify-content: center; }
         .solution-navigator.active { display: flex; }
 
@@ -74,10 +79,35 @@
         #tableActions { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
         .status-list { padding-left: 0; list-style: none; margin: 10px 0; font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
         .status-list li { background: #f9f9f9; padding: 8px; border-radius: 4px; border-left: 4px solid #ccc; }
-        
+
         .zoom-controls { display: flex; align-items: center; background: #ecf0f1; border-radius: 4px; padding: 2px; }
         .zoom-controls button { border: none; background: transparent; padding: 4px 8px; font-weight: bold; box-shadow: none; }
         .zoom-controls button:hover { background: #bdc3c7; }
+
+        /* Progress bar & toasts */
+        .progress-wrap { display: none; width: 100%; height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden; }
+        .progress-wrap.active { display: block; }
+        .progress-bar { height: 100%; width: 0%; background: var(--primary); transition: width 0.1s linear; }
+
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--secondary); color: white; padding: 8px 16px; border-radius: 6px; font-size: 13px; z-index: 100; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+        .toast.show { opacity: 1; }
+
+        .armed-banner { display: none; width: 100%; text-align: center; font-size: 12px; color: var(--success); font-weight: bold; margin-top: -6px; }
+        .armed-banner.active { display: block; }
+
+        @media (max-width: 1100px) {
+            body { flex-direction: column; height: auto; }
+            .sidebar.left, .sidebar.right { width: 100%; }
+            .main { min-height: 70vh; }
+        }
+
+        @media print {
+            body { padding: 0; height: auto; }
+            .sidebar, .controls, .toast, .progress-wrap { display: none !important; }
+            .main { overflow: visible; }
+            .grid-wrapper { overflow: visible; }
+            .grid-container { transform: none !important; box-shadow: none; }
+        }
     </style>
 </head>
 <body>
@@ -85,28 +115,28 @@
 <div class="sidebar left" id="leftSidebar">
     <details open>
         <summary>1. Klassenliste & Drag/Drop</summary>
-        
+
         <div class="form-row" style="margin-top: 10px;">
-            <input type="text" id="manualNameInput" placeholder="Name eingeben..." style="flex:1;">
+            <input type="text" id="manualNameInput" placeholder="Name eingeben..." style="flex:1;" aria-label="Name eingeben">
             <button onclick="addManualStudent()">Hinzufügen</button>
         </div>
-        <div style="text-align: center; margin: 8px 0; font-size: 11px; color: #999;">- ODER DATEI LADEN -</div>
-        
-        <input type="file" id="fileInput" accept=".txt" style="width: 100%; box-sizing: border-box;">
-        <div style="font-size: 11px; color: #666; margin-top: 10px;">Zieh Schüler:innen aus dem Pool auf Tische!</div>
+        <div style="text-align: center; margin: 8px 0; font-size: 11px; color: #999;">- ODER DATEI LADEN (.txt / .csv, ein Name pro Zeile) -</div>
+
+        <input type="file" id="fileInput" accept=".txt,.csv" style="width: 100%; box-sizing: border-box;" aria-label="Klassenliste laden">
+        <div style="font-size: 11px; color: #666; margin-top: 10px;">Zieh Schüler:innen aus dem Pool auf Tische — oder tippe eine Pille an und dann einen Platz.</div>
         <div class="student-pool" id="studentPool" ondrop="dropPool(event)" ondragover="allowDrop(event)"></div>
     </details>
 
     <details open>
         <summary>2. Wünsche & Trennungen</summary>
-        <select id="studentA" style="width:100%; margin-top:5px;"><option>Schüler:in A</option></select>
-        <select id="studentB" style="width:100%; margin-top:5px;"><option>Schüler:in B</option></select>
+        <select id="studentA" style="width:100%; margin-top:5px;" aria-label="Schüler:in A"><option value="">Schüler:in A</option></select>
+        <select id="studentB" style="width:100%; margin-top:5px;" aria-label="Schüler:in B"><option value="">Schüler:in B</option></select>
         <div class="form-row">
-            <select id="relationType" style="flex:1;">
+            <select id="relationType" style="flex:1;" aria-label="Art der Relation">
                 <option value="wish">Wunsch</option>
                 <option value="separate">Trennen</option>
             </select>
-            <select id="relationPrio" style="flex:1;">
+            <select id="relationPrio" style="flex:1;" aria-label="Priorität">
                 <option value="1">1. Priorität</option>
                 <option value="2">2. Priorität</option>
                 <option value="3">3. Priorität</option>
@@ -118,10 +148,10 @@
 
     <details>
         <summary>3. Feste Gruppen (Ketten)</summary>
-        <select id="g1" style="width:100%; margin-top:5px;"><option value="">Person 1</option></select>
-        <select id="g2" style="width:100%; margin-top:5px;"><option value="">Person 2</option></select>
-        <select id="g3" style="width:100%; margin-top:5px;"><option value="">Person 3 (optional)</option></select>
-        <select id="g4" style="width:100%; margin-top:5px;"><option value="">Person 4 (optional)</option></select>
+        <select id="g1" style="width:100%; margin-top:5px;" aria-label="Person 1"><option value="">Person 1</option></select>
+        <select id="g2" style="width:100%; margin-top:5px;" aria-label="Person 2"><option value="">Person 2</option></select>
+        <select id="g3" style="width:100%; margin-top:5px;" aria-label="Person 3 (optional)"><option value="">Person 3 (optional)</option></select>
+        <select id="g4" style="width:100%; margin-top:5px;" aria-label="Person 4 (optional)"><option value="">Person 4 (optional)</option></select>
         <button onclick="addGroup()" style="width:100%; margin-top:5px;">Gruppe erstellen</button>
         <div class="group-list" id="groupsList"></div>
     </details>
@@ -129,59 +159,64 @@
     <details>
         <summary>4. Raum & Algorithmus</summary>
         <div class="form-row">
-            <label>Spalten (Breite):</label> 
+            <label for="gridColsInput">Spalten (Breite):</label>
             <input type="number" id="gridColsInput" value="10" min="2" max="20" onchange="updateGridSize()">
         </div>
         <div class="form-row">
-            <label>Reihen (Tiefe):</label> 
+            <label for="gridRowsInput">Reihen (Tiefe):</label>
             <input type="number" id="gridRowsInput" value="8" min="2" max="20" onchange="updateGridSize()">
         </div>
         <hr style="border: 0.5px solid #eee;">
         <div class="form-row">
-            <label>Algorithmus:</label> 
+            <label for="algoType">Algorithmus:</label>
             <select id="algoType" style="width: 150px;">
                 <option value="sa">Simulierte Abkühlung (Besser)</option>
                 <option value="hc">Hill-Climbing (Schneller)</option>
             </select>
         </div>
-        <div class="form-row"><label>Versuche:</label> <input type="number" id="iterations" value="2000" step="500"></div>
+        <div class="form-row"><label for="iterations">Versuche:</label> <input type="number" id="iterations" value="2000" step="500"></div>
         <hr style="border: 0.5px solid #eee;">
-        <div class="form-row"><label>Nebeneinander:</label> <input type="number" id="w_neben" value="4" onchange="updateLiveScore()"></div>
-        <div class="form-row"><label>Diagonal angrenzend:</label> <input type="number" id="w_diagonal" value="2" onchange="updateLiveScore()"></div>
-        <div class="form-row"><label title="Vorne, hinten oder 1 Platz dazwischen">Davor/Dahinter/Dazwischen:</label> <input type="number" id="w_zwischen" value="1" onchange="updateLiveScore()"></div>
+        <div class="form-row"><label for="w_neben">Nebeneinander:</label> <input type="number" id="w_neben" value="4" onchange="updateLiveScore()"></div>
+        <div class="form-row"><label for="w_diagonal">Diagonal angrenzend:</label> <input type="number" id="w_diagonal" value="2" onchange="updateLiveScore()"></div>
+        <div class="form-row"><label for="w_zwischen" title="Vorne, hinten oder 1 Platz dazwischen">Davor/Dahinter/Dazwischen:</label> <input type="number" id="w_zwischen" value="1" onchange="updateLiveScore()"></div>
         <hr style="border: 0.5px solid #eee;">
-        <div class="form-row"><label>Multiplikator Prio 1:</label> <input type="number" id="m_prio1" value="3" onchange="updateLiveScore()"></div>
-        <div class="form-row"><label>Multiplikator Prio 2:</label> <input type="number" id="m_prio2" value="2" onchange="updateLiveScore()"></div>
-        <div class="form-row"><label>Multiplikator Prio 3:</label> <input type="number" id="m_prio3" value="1" onchange="updateLiveScore()"></div>
+        <div class="form-row"><label for="m_prio1">Multiplikator Prio 1:</label> <input type="number" id="m_prio1" value="3" onchange="updateLiveScore()"></div>
+        <div class="form-row"><label for="m_prio2">Multiplikator Prio 2:</label> <input type="number" id="m_prio2" value="2" onchange="updateLiveScore()"></div>
+        <div class="form-row"><label for="m_prio3">Multiplikator Prio 3:</label> <input type="number" id="m_prio3" value="1" onchange="updateLiveScore()"></div>
     </details>
 </div>
 
 <div class="main">
     <div class="controls">
         <button onclick="toggleSidebar('left')" title="Linke Seitenleiste umschalten">☰ Menü</button>
-        
-        <button class="primary" onclick="generatePlan(false)">Neu generieren</button>
-        <button class="success" onclick="generatePlan(true)">Ausgehend von hier optimieren</button>
-        
+
+        <button class="primary" id="btnGenerate" onclick="generatePlan(false)">Neu generieren</button>
+        <button class="success" id="btnOptimize" onclick="generatePlan(true)">Ausgehend von hier optimieren</button>
+
         <div class="zoom-controls">
-            <button onclick="changeZoom(-0.1)" title="Herauszoomen">🔍-</button>
+            <button onclick="changeZoom(-0.1)" title="Herauszoomen" aria-label="Herauszoomen">🔍-</button>
             <span id="zoomLabel" style="font-size: 13px; min-width: 45px; text-align: center; cursor: pointer;" onclick="resetZoom()" title="Zoom zurücksetzen">100%</span>
-            <button onclick="changeZoom(0.1)" title="Hineinzoomen">🔍+</button>
+            <button onclick="changeZoom(0.1)" title="Hineinzoomen" aria-label="Hineinzoomen">🔍+</button>
         </div>
-        
+
         <button onclick="toggleView()">Ansicht drehen</button>
+        <button onclick="undo()" title="Letzte Aktion rückgängig (Strg+Z)">↩ Rückgängig</button>
         <button onclick="exportData()">Speichern</button>
         <input type="file" id="loadJson" accept=".json" style="display:none;" onchange="importData(event)">
         <button onclick="document.getElementById('loadJson').click()">Laden</button>
+        <button onclick="exportPNG()">Als Bild exportieren</button>
+        <button onclick="window.print()" title="Plan drucken">Drucken</button>
         <button onclick="clearPlan(true)">Plan leeren</button>
-        
+
         <button onclick="toggleSidebar('right')" title="Rechte Seitenleiste umschalten">Details ☰</button>
-        
+
         <div class="solution-navigator" id="solutionNavigator">
-            <button onclick="changeSolution(-1)">◀</button>
+            <button onclick="changeSolution(-1)" aria-label="Vorherige Lösung">◀</button>
             <span id="solutionInfo" style="font-weight: bold;">Lösung 1/3 (Punkte: 0)</span>
-            <button onclick="changeSolution(1)">▶</button>
+            <button onclick="changeSolution(1)" aria-label="Nächste Lösung">▶</button>
         </div>
+        <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="armed-banner" id="armedBanner">Tipp einen Platz oder Tisch an, um die markierte Person zu setzen (erneut antippen = abbrechen)</div>
     </div>
 
     <div class="grid-wrapper">
@@ -193,17 +228,17 @@
 </div>
 
 <div class="sidebar right" id="rightSidebar">
-    
+
     <div class="live-score-box">
         <div class="live-score-title">Live-Score des Raumes</div>
         <div id="liveScore">0</div>
     </div>
 
-    <h3 style="margin-top:0;">Tisch & Schüler:innen Details</h3>
+    <h3 style="margin-top:0;">Tisch &amp; Schüler:innen Details</h3>
     <div id="selectionDetails" style="font-size: 14px; color: #555;">
         Klicke auf einen Tisch im Raster, um die Verbindungen und Aktionen zu sehen.
     </div>
-    
+
     <div id="tableActions" style="display:none;">
         <button id="btnTogglePin" onclick="selectedAction('pin')">Festpinnen / Lösen</button>
         <button id="btnRemoveStudent" onclick="selectedAction('remove')">Schüler:in in Pool legen</button>
@@ -211,26 +246,126 @@
     </div>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
     let ROWS = 8;
     let COLS = 10;
     let students = [];
-    let tables = []; 
-    let relations = []; 
+    let tables = [];
+    let relations = [];
     let groups = [];
     let topSolutions = [];
     let currentSolutionIndex = 0;
-    
-    let selectedTable = null; 
-    let highlightedStudent = null; 
-    
+
+    let selectedTable = null;
+    let highlightedStudent = null;
+
     let currentZoom = 1.0;
     let isTeacherView = false;
+
+    // Tap-to-place state: a pool student name or a table reference currently "picked up"
+    let armedPoolStudent = null;
+    let armedTable = null;
+
+    // Undo stack: snapshots of `tables` (assignment + pinned) taken before mutations
+    let undoStack = [];
+    const UNDO_LIMIT = 50;
+
+    let generating = false;
+
+    const STORAGE_KEY = 'sitzplangenerator_state_v1';
 
     const gridEl = document.getElementById('grid');
     const gridContainer = document.getElementById('gridContainer');
     const canvas = document.getElementById('linesCanvas');
     const ctx = canvas.getContext('2d');
+
+    // --- Toast ---
+    let toastTimer = null;
+    function toast(msg) {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // --- Undo ---
+    function pushUndo() {
+        undoStack.push(JSON.stringify(tables));
+        if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+    }
+    function undo() {
+        if (undoStack.length === 0) return toast('Nichts rückgängig zu machen.');
+        tables = JSON.parse(undoStack.pop());
+        clearSelection();
+        renderTables();
+        saveState();
+    }
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            undo();
+        }
+    });
+
+    // --- Persistenz ---
+    function readSettings() {
+        const num = (id, fallback) => {
+            const v = parseInt(document.getElementById(id).value, 10);
+            return Number.isFinite(v) ? v : fallback;
+        };
+        return {
+            rows: num('gridRowsInput', 8),
+            cols: num('gridColsInput', 10),
+            algo: document.getElementById('algoType').value,
+            w_neben: num('w_neben', 4),
+            w_diagonal: num('w_diagonal', 2),
+            w_zwischen: num('w_zwischen', 1),
+            m_prio1: num('m_prio1', 3),
+            m_prio2: num('m_prio2', 2),
+            m_prio3: num('m_prio3', 1),
+            iterations: num('iterations', 2000)
+        };
+    }
+
+    function saveState() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                students, tables, relations, groups,
+                settings: readSettings()
+            }));
+        } catch (e) { /* Speicher voll o.ä. — ignorieren */ }
+    }
+
+    function restoreState() {
+        let data;
+        try {
+            data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        } catch (e) { data = null; }
+        if (!data) return false;
+
+        students = Array.isArray(data.students) ? data.students : [];
+        tables = Array.isArray(data.tables) ? data.tables : [];
+        relations = Array.isArray(data.relations) ? data.relations : [];
+        groups = Array.isArray(data.groups) ? data.groups : [];
+
+        const s = data.settings;
+        if (s) {
+            if (s.rows) document.getElementById('gridRowsInput').value = s.rows;
+            if (s.cols) document.getElementById('gridColsInput').value = s.cols;
+            if (s.algo) document.getElementById('algoType').value = s.algo;
+            const set = (id, v) => { if (v !== undefined && v !== null) document.getElementById(id).value = v; };
+            set('w_neben', s.w_neben); set('w_diagonal', s.w_diagonal); set('w_zwischen', s.w_zwischen);
+            set('m_prio1', s.m_prio1); set('m_prio2', s.m_prio2); set('m_prio3', s.m_prio3);
+            set('iterations', s.iterations);
+            ROWS = parseInt(document.getElementById('gridRowsInput').value, 10) || 8;
+            COLS = parseInt(document.getElementById('gridColsInput').value, 10) || 10;
+            tables = tables.filter(t => t.r < ROWS && t.c < COLS);
+        }
+        return students.length > 0 || tables.length > 0;
+    }
 
     // --- UI Toggle & Zoom ---
     function toggleSidebar(side) {
@@ -256,44 +391,47 @@
 
     function toggleView() {
         isTeacherView = !isTeacherView;
-        if (isTeacherView) {
-            document.body.classList.add('teacher-view-active');
-        } else {
-            document.body.classList.remove('teacher-view-active');
-        }
+        document.body.classList.toggle('teacher-view-active', isTeacherView);
         updateGridTransform();
     }
 
     // --- Init & Grid Size ---
     function updateGridSize() {
-        ROWS = parseInt(document.getElementById('gridRowsInput').value);
-        COLS = parseInt(document.getElementById('gridColsInput').value);
-        
+        const newRows = parseInt(document.getElementById('gridRowsInput').value, 10);
+        const newCols = parseInt(document.getElementById('gridColsInput').value, 10);
+        if (!Number.isFinite(newRows) || !Number.isFinite(newCols)) return;
+        ROWS = Math.min(20, Math.max(2, newRows));
+        COLS = Math.min(20, Math.max(2, newCols));
+        document.getElementById('gridRowsInput').value = ROWS;
+        document.getElementById('gridColsInput').value = COLS;
+
         tables.forEach(t => {
-            if (t.r >= ROWS || t.c >= COLS) {
-                if (t.student) { t.student = null; t.pinned = false; }
-            }
+            if (t.r >= ROWS || t.c >= COLS) { t.student = null; t.pinned = false; }
         });
         tables = tables.filter(t => t.r < ROWS && t.c < COLS);
         initGrid(false);
+        saveState();
     }
 
     function initGrid(clearTables = true) {
-        if(clearTables) tables = [];
+        if (clearTables) tables = [];
         gridEl.innerHTML = '';
         gridEl.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
         gridEl.style.gridTemplateRows = `repeat(${ROWS}, 1fr)`;
-        
+
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
                 const cell = document.createElement('div');
                 cell.className = 'cell';
                 cell.dataset.r = r;
                 cell.dataset.c = c;
-                cell.onclick = (e) => { 
-                    if(e.target === cell) {
-                        createTable(r, c); 
-                        clearSelection(e); 
+                cell.onclick = (e) => {
+                    if (e.target !== cell) return;
+                    if (armedPoolStudent !== null || armedTable !== null) {
+                        placeArmed(r, c);
+                    } else {
+                        createTable(r, c);
+                        clearSelection(e);
                     }
                 };
                 cell.ondragover = allowDrop;
@@ -306,33 +444,49 @@
 
     function createTable(r, c) {
         if (!tables.find(t => t.r === r && t.c === c)) {
+            pushUndo();
             tables.push({ r, c, student: null, pinned: false });
             renderTables();
+            saveState();
         }
     }
 
     function renderTables() {
-        document.querySelectorAll('.cell').forEach(cell => cell.innerHTML = '');
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.innerHTML = '';
+            cell.classList.toggle('drop-target', armedPoolStudent !== null || armedTable !== null);
+        });
         tables.forEach(t => {
-            const cell = document.querySelector(`.cell[data-r="${t.r}"][data-c="${t.c}"]`);
-            if (cell) {
-                const tbl = document.createElement('div');
-                tbl.className = 'table' + (t.pinned ? ' pinned' : '');
-                if(selectedTable && selectedTable.r === t.r && selectedTable.c === t.c) tbl.classList.add('selected');
-                
-                tbl.innerText = t.student ? t.student : ''; 
-                tbl.draggable = !!t.student;
-                
-                tbl.onclick = (e) => { e.stopPropagation(); selectMyTable(t); };
-                
-                tbl.ondragstart = (e) => {
-                    e.dataTransfer.setData('text/plain', t.student);
-                    e.dataTransfer.setData('source', 'table');
-                    e.dataTransfer.setData('sourceR', t.r);
-                    e.dataTransfer.setData('sourceC', t.c);
-                };
-                cell.appendChild(tbl);
-            }
+            const cell = gridEl.querySelector(`.cell[data-r="${t.r}"][data-c="${t.c}"]`);
+            if (!cell) return;
+            const tbl = document.createElement('div');
+            tbl.className = 'table' + (t.pinned ? ' pinned' : '');
+            if (selectedTable && selectedTable.r === t.r && selectedTable.c === t.c) tbl.classList.add('selected');
+            if (armedTable === t) tbl.classList.add('armed');
+
+            tbl.innerText = t.student ? t.student : '';
+            tbl.draggable = !!t.student;
+
+            tbl.onclick = (e) => {
+                e.stopPropagation();
+                if (armedPoolStudent !== null || armedTable !== null) {
+                    placeArmed(t.r, t.c);
+                } else if (t.student && selectedTable === t) {
+                    // Zweiter Tap auf denselben Tisch: Schüler:in "aufnehmen" (Touch-Ersatz für Drag&Drop)
+                    armTableStudent(t);
+                } else {
+                    selectMyTable(t);
+                }
+            };
+
+            tbl.ondragstart = (e) => {
+                if (t.pinned) { e.preventDefault(); toast('Gepinnte Schüler:innen können nicht verschoben werden — erst Pin lösen.'); return; }
+                e.dataTransfer.setData('text/plain', t.student);
+                e.dataTransfer.setData('source', 'table');
+                e.dataTransfer.setData('sourceR', t.r);
+                e.dataTransfer.setData('sourceC', t.c);
+            };
+            cell.appendChild(tbl);
         });
         renderUnplaced();
         drawLines();
@@ -342,36 +496,95 @@
     function updateSelectionVisuals() {
         document.querySelectorAll('.table').forEach(el => el.classList.remove('selected'));
         if (selectedTable) {
-            const cell = document.querySelector(`.cell[data-r="${selectedTable.r}"][data-c="${selectedTable.c}"]`);
+            const cell = gridEl.querySelector(`.cell[data-r="${selectedTable.r}"][data-c="${selectedTable.c}"]`);
             if (cell && cell.firstChild) cell.firstChild.classList.add('selected');
         }
         drawLines();
     }
 
+    // --- Tap-to-place (Touch-Fallback für Drag & Drop) ---
+    function armPoolStudent(name, pillEl) {
+        if (armedPoolStudent === name) { disarm(); return; }
+        armedPoolStudent = name;
+        armedTable = null;
+        document.getElementById('armedBanner').classList.add('active');
+        renderTables();
+    }
+
+    function armTableStudent(table) {
+        if (!table.student) return;
+        if (table.pinned) { toast('Gepinnte Schüler:innen können nicht verschoben werden — erst Pin lösen.'); return; }
+        if (armedTable === table) { disarm(); return; }
+        armedTable = table;
+        armedPoolStudent = null;
+        document.getElementById('armedBanner').classList.add('active');
+        renderTables();
+    }
+
+    function disarm() {
+        armedPoolStudent = null;
+        armedTable = null;
+        document.getElementById('armedBanner').classList.remove('active');
+        renderTables();
+    }
+
+    function placeArmed(r, c) {
+        if (armedPoolStudent === null && armedTable === null) return;
+        let targetTable = tables.find(t => t.r === r && t.c === c);
+
+        if (targetTable && targetTable.pinned) {
+            toast('Dieser Tisch ist gepinnt.');
+            return;
+        }
+
+        pushUndo();
+        if (!targetTable) {
+            targetTable = { r, c, student: null, pinned: false };
+            tables.push(targetTable);
+        }
+
+        if (armedPoolStudent !== null) {
+            // Belegter Zieltisch: bisherige:r Schüler:in geht zurück in den Pool (Tausch)
+            targetTable.student = armedPoolStudent;
+        } else if (armedTable) {
+            if (armedTable === targetTable) { undoStack.pop(); disarm(); return; }
+            const tmpStudent = targetTable.student;
+            targetTable.student = armedTable.student;
+            // Pin bleibt am Platz, wandert nicht mit der Person
+            armedTable.student = tmpStudent;
+            armedTable.pinned = false;
+        }
+        const placedName = targetTable.student;
+        disarm();
+        renderTables();
+        saveState();
+        if (placedName) toast(`${placedName} platziert.`);
+    }
+
     // --- RECHTE SEITENLEISTE ---
     function clearSelection(e) {
-        if(e && e.target !== gridEl && !e.target.classList.contains('cell')) return;
+        if (e && e.target !== gridEl && !e.target.classList.contains('cell')) return;
         selectedTable = null;
         highlightedStudent = null;
-        
-        document.getElementById('selectionDetails').innerHTML = 'Klicke auf einen Tisch im Raster, um die Verbindungen und Aktionen zu sehen.';
+
+        document.getElementById('selectionDetails').innerText = 'Klicke auf einen Tisch im Raster, um die Verbindungen und Aktionen zu sehen.';
         document.getElementById('tableActions').style.display = 'none';
-        
+
         updateSelectionVisuals();
     }
 
     function selectMyTable(table) {
-        if(!table) return clearSelection();
+        if (!table) return clearSelection();
         selectedTable = table;
         highlightedStudent = table.student;
-        
+
         const details = document.getElementById('selectionDetails');
         const actions = document.getElementById('tableActions');
         const btnPin = document.getElementById('btnTogglePin');
         const btnRemove = document.getElementById('btnRemoveStudent');
 
         if (!table.student) {
-            details.innerHTML = '<b>Leerer Tisch</b><br><br>Hier sitzt momentan niemand. Du kannst eine:n Schüler:in aus dem Pool hierher ziehen.';
+            details.innerText = 'Leerer Tisch\n\nHier sitzt momentan niemand. Du kannst eine:n Schüler:in aus dem Pool hierher ziehen oder antippen.';
             actions.style.display = 'flex';
             btnPin.style.display = 'none';
             btnRemove.style.display = 'none';
@@ -380,113 +593,167 @@
             btnPin.style.display = 'block';
             btnRemove.style.display = 'block';
             btnPin.innerText = table.pinned ? 'Pin lösen' : 'Festpinnen';
-            
-            let html = `<h2 style="margin:0 0 10px 0; color:var(--primary);">${table.student}</h2>`;
-            
-            let rels = relations.filter(r => r.a === table.student || r.b === table.student);
-            let grps = groups.filter(g => g.includes(table.student));
-            
+
+            details.innerHTML = '';
+            const h = document.createElement('h2');
+            h.style.cssText = 'margin:0 0 10px 0; color:var(--primary);';
+            h.innerText = table.student;
+            details.appendChild(h);
+
+            const rels = relations.filter(r => r.a === table.student || r.b === table.student);
+            const grps = groups.filter(g => g.includes(table.student));
+
             if (rels.length === 0 && grps.length === 0) {
-                html += `<div style="color:#888;">Keine Wünsche oder Gruppen hinterlegt.</div>`;
+                const d = document.createElement('div');
+                d.style.color = '#888';
+                d.innerText = 'Keine Wünsche oder Gruppen hinterlegt.';
+                details.appendChild(d);
             } else {
-                html += `<ul class="status-list">`;
+                const ul = document.createElement('ul');
+                ul.className = 'status-list';
                 rels.forEach(r => {
-                    let partner = r.a === table.student ? r.b : r.a;
-                    let tPartner = tables.find(tbl => tbl.student === partner);
-                    let fulfillHTML = getFulfillmentText(table, tPartner, r.type);
-                    
-                    let pText = r.type === 'wish' ? `(Prio ${r.prio})` : `(Trennen)`;
-                    html += `<li><b>${partner}</b> ${pText}<br>${fulfillHTML}</li>`;
+                    const partner = r.a === table.student ? r.b : r.a;
+                    const tPartner = tables.find(tbl => tbl.student === partner);
+                    const li = document.createElement('li');
+                    const b = document.createElement('b');
+                    b.innerText = partner;
+                    li.appendChild(b);
+                    li.appendChild(document.createTextNode(r.type === 'wish' ? ` (Prio ${r.prio})` : ' (Trennen)'));
+                    li.appendChild(document.createElement('br'));
+                    li.appendChild(getFulfillmentNode(table, tPartner, r.type));
+                    ul.appendChild(li);
                 });
                 grps.forEach(g => {
-                    let partners = g.filter(member => member !== table.student);
-                    html += `<li style="border-left-color: #2980b9;"><b>Gruppe</b> mit:<br>${partners.join(', ')}</li>`;
+                    const partners = g.filter(member => member !== table.student);
+                    const li = document.createElement('li');
+                    li.style.borderLeftColor = '#2980b9';
+                    const b = document.createElement('b');
+                    b.innerText = 'Gruppe';
+                    li.appendChild(b);
+                    li.appendChild(document.createTextNode(' mit: '));
+                    li.appendChild(document.createElement('br'));
+                    li.appendChild(document.createTextNode(partners.join(', ')));
+                    ul.appendChild(li);
                 });
-                html += `</ul>`;
+                details.appendChild(ul);
             }
-            details.innerHTML = html;
         }
-        updateSelectionVisuals(); 
+        updateSelectionVisuals();
     }
 
-    function getFulfillmentText(tA, tB, type) {
-        if (!tA || !tB) return `<span style="color:#7f8c8d;">Partner nicht platziert</span>`;
+    function statusSpan(text, color) {
+        const s = document.createElement('span');
+        s.style.color = color;
+        s.innerText = text;
+        return s;
+    }
+
+    function getFulfillmentNode(tA, tB, type) {
+        if (!tA || !tB) return statusSpan('Partner nicht platziert', '#7f8c8d');
         const dr = Math.abs(tA.r - tB.r);
         const dc = Math.abs(tA.c - tB.c);
-        
+        const isNear = distanceClass(dr, dc) > 0;
+
         if (type === 'separate') {
-            if ((dr === 0 && dc === 1) || (dr === 1 && dc === 1) || ((dr === 0 && dc === 2) || (dr === 1 && dc === 0))) {
-                return `<span style="color:#e74c3c;">❌ Zu nah! (Strafe)</span>`;
-            }
-            return `<span style="color:#27ae60;">✅ Erfolgreich getrennt</span>`;
-        } else {
-            if (dr === 0 && dc === 1) return `<span style="color:#27ae60;">✅ Erfüllt (Nebeneinander)</span>`;
-            if (dr === 1 && dc === 1) return `<span style="color:#f39c12;">✅ Erfüllt (Diagonal)</span>`;
-            if ((dr === 0 && dc === 2) || (dr === 1 && dc === 0)) return `<span style="color:#8e44ad;">⚠️ Dazwischen/Vor/Hinter</span>`;
-            return `<span style="color:#e74c3c;">❌ Nicht erfüllt (Zu weit weg)</span>`;
+            if (isNear) return statusSpan('❌ Zu nah! (Strafe)', '#e74c3c');
+            return statusSpan('✅ Erfolgreich getrennt', '#27ae60');
         }
+        const cls = distanceClass(dr, dc);
+        if (cls === 1) return statusSpan('✅ Erfüllt (Nebeneinander)', '#27ae60');
+        if (cls === 2) return statusSpan('✅ Erfüllt (Diagonal)', '#f39c12');
+        if (cls === 3) return statusSpan('⚠️ Dazwischen/Vor/Hinter', '#8e44ad');
+        return statusSpan('❌ Nicht erfüllt (Zu weit weg)', '#e74c3c');
+    }
+
+    // Symmetrische Distanzklassen:
+    // 1 = direkt nebeneinander (gleiche Reihe), 2 = diagonal angrenzend,
+    // 3 = davor/dahinter (gleiche Spalte) oder 1 Platz dazwischen (horiz./vertikal)
+    function distanceClass(dr, dc) {
+        if (dr === 0 && dc === 1) return 1;
+        if (dr === 1 && dc === 1) return 2;
+        if ((dr === 1 && dc === 0) || (dr === 0 && dc === 2) || (dr === 2 && dc === 0)) return 3;
+        return 0;
     }
 
     function selectedAction(action) {
-        if(!selectedTable) return;
-        if (action === 'pin') { 
-            selectedTable.pinned = !selectedTable.pinned; 
-        } 
-        else if (action === 'remove') { 
-            selectedTable.student = null; 
-            selectedTable.pinned = false; 
-        } 
-        else if (action === 'delete') { 
-            tables = tables.filter(tbl => tbl !== selectedTable); 
+        if (!selectedTable) return;
+        pushUndo();
+        if (action === 'pin') {
+            selectedTable.pinned = !selectedTable.pinned;
+        } else if (action === 'remove') {
+            selectedTable.student = null;
+            selectedTable.pinned = false;
+        } else if (action === 'delete') {
+            tables = tables.filter(tbl => tbl !== selectedTable);
             clearSelection();
             renderTables();
+            saveState();
             return;
         }
         renderTables();
-        selectMyTable(selectedTable); 
+        saveState();
+        selectMyTable(selectedTable);
     }
 
     // --- Drag & Drop ---
     function allowDrop(e) { e.preventDefault(); }
-    function dragStartPool(e, name) { e.dataTransfer.setData('text/plain', name); e.dataTransfer.setData('source', 'pool'); }
+    function dragStartPool(e, name) {
+        e.dataTransfer.setData('text/plain', name);
+        e.dataTransfer.setData('source', 'pool');
+    }
 
     function dropTable(e, r, c) {
         e.preventDefault();
         const name = e.dataTransfer.getData('text/plain');
         const source = e.dataTransfer.getData('source');
-        
+
         let targetTable = tables.find(t => t.r === r && t.c === c);
-        if(!targetTable) {
+
+        if (targetTable && targetTable.pinned) {
+            toast('Dieser Tisch ist gepinnt.');
+            return;
+        }
+
+        pushUndo();
+        if (!targetTable) {
             targetTable = { r, c, student: null, pinned: false };
             tables.push(targetTable);
         }
 
         if (source === 'pool') {
+            // Belegter Zieltisch: vorherige:r Schüler:in geht zurück in den Pool (Tausch statt Verdrängen)
             targetTable.student = name;
-            targetTable.pinned = false; 
         } else if (source === 'table') {
-            const sr = parseInt(e.dataTransfer.getData('sourceR'));
-            const sc = parseInt(e.dataTransfer.getData('sourceC'));
+            const sr = parseInt(e.dataTransfer.getData('sourceR'), 10);
+            const sc = parseInt(e.dataTransfer.getData('sourceC'), 10);
             const sourceTable = tables.find(t => t.r === sr && t.c === sc);
-            
+            if (!sourceTable) { undoStack.pop(); return; }
+
             const tempStudent = targetTable.student;
-            const tempPinned = targetTable.pinned;
             targetTable.student = sourceTable.student;
-            targetTable.pinned = sourceTable.pinned; 
             sourceTable.student = tempStudent;
-            sourceTable.pinned = tempStudent ? tempPinned : false;
+            // Pin gehört zum Platz: Quellplatz wird entpinnt, Zielplatz war ja nicht gepinnt
+            sourceTable.pinned = false;
         }
         renderTables();
+        saveState();
     }
 
     function dropPool(e) {
         e.preventDefault();
         const source = e.dataTransfer.getData('source');
         if (source === 'table') {
-            const sr = parseInt(e.dataTransfer.getData('sourceR'));
-            const sc = parseInt(e.dataTransfer.getData('sourceC'));
+            const sr = parseInt(e.dataTransfer.getData('sourceR'), 10);
+            const sc = parseInt(e.dataTransfer.getData('sourceC'), 10);
             const sourceTable = tables.find(t => t.r === sr && t.c === sc);
-            if(sourceTable) { sourceTable.student = null; sourceTable.pinned = false; renderTables(); }
+            if (sourceTable && !sourceTable.pinned) {
+                pushUndo();
+                sourceTable.student = null;
+                renderTables();
+                saveState();
+            } else if (sourceTable && sourceTable.pinned) {
+                toast('Gepinnte Schüler:innen können nicht in den Pool gelegt werden — erst Pin lösen.');
+            }
         }
     }
 
@@ -495,13 +762,14 @@
         pool.innerHTML = '';
         const placed = tables.map(t => t.student).filter(s => s);
         const unplaced = students.filter(s => !placed.includes(s));
-        
+
         unplaced.forEach(s => {
             const pill = document.createElement('div');
-            pill.className = 'student-pill';
+            pill.className = 'student-pill' + (armedPoolStudent === s ? ' armed' : '');
             pill.draggable = true;
             pill.innerText = s;
             pill.ondragstart = (e) => dragStartPool(e, s);
+            pill.onclick = (e) => { e.stopPropagation(); armPoolStudent(s, pill); };
             pool.appendChild(pill);
         });
     }
@@ -512,10 +780,28 @@
         if (!file) return;
         const reader = new FileReader();
         reader.onload = function(e) {
-            students = e.target.result.split('\n').map(s => s.trim()).filter(s => s);
+            const imported = String(e.target.result)
+                .split(/\r?\n/)
+                .map(line => line.split(/[;\t,]/)[0].trim()) // CSV/TSV: erste Spalte = Name
+                .filter(s => s);
+
+            const seen = new Set(students);
+            let added = 0, skipped = 0;
+            imported.forEach(name => {
+                if (seen.has(name)) { skipped++; return; }
+                seen.add(name);
+                students.push(name);
+                added++;
+            });
+
             updateSelects();
             renderTables();
+            saveState();
+            if (skipped > 0) toast(`${added} hinzugefügt, ${skipped} Duplikat(e) übersprungen.`);
+            else if (added > 0) toast(`${added} Schüler:innen importiert.`);
+            e.target.value = '';
         };
+        reader.onerror = () => toast('Datei konnte nicht gelesen werden.');
         reader.readAsText(file);
     });
 
@@ -529,18 +815,19 @@
     function addManualStudent() {
         const input = document.getElementById('manualNameInput');
         const name = input.value.trim();
-        
-        if (!name) return; 
+
+        if (!name) return;
         if (students.includes(name)) {
-            alert('Diese:r Schüler:in existiert bereits!');
+            toast('Diese:r Schüler:in existiert bereits!');
             return;
         }
-        
-        students.push(name); 
-        input.value = '';    
-        
-        updateSelects();     
-        renderTables();      
+
+        students.push(name);
+        input.value = '';
+
+        updateSelects();
+        renderTables();
+        saveState();
     }
 
     function updateSelects() {
@@ -548,8 +835,17 @@
         selects.forEach(id => {
             const el = document.getElementById(id);
             const defaultText = el.options[0].text;
-            el.innerHTML = `<option value="">${defaultText}</option>`;
-            [...students].sort().forEach(s => { el.innerHTML += `<option value="${s}">${s}</option>`; });
+            el.innerHTML = '';
+            const def = document.createElement('option');
+            def.value = '';
+            def.innerText = defaultText;
+            el.appendChild(def);
+            [...students].sort().forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.innerText = s;
+                el.appendChild(opt);
+            });
         });
     }
 
@@ -557,13 +853,18 @@
         const a = document.getElementById('studentA').value;
         const b = document.getElementById('studentB').value;
         const type = document.getElementById('relationType').value;
-        const prio = parseInt(document.getElementById('relationPrio').value);
-        if (!a || !b || a === b) return alert("Bitte zwei verschiedene Schüler:innen wählen.");
-        relations = relations.filter(r => !(r.a === a && r.b === b));
+        const prio = parseInt(document.getElementById('relationPrio').value, 10);
+        if (!a || !b || a === b) return toast('Bitte zwei verschiedene Schüler:innen wählen.');
+
+        // Ungeordnetes Paar deduplizieren: neue Relation ersetzt bestehende zwischen denselben Personen
+        const had = relations.some(r => (r.a === a && r.b === b) || (r.a === b && r.b === a));
+        relations = relations.filter(r => !((r.a === a && r.b === b) || (r.a === b && r.b === a)));
         relations.push({ a, b, type, prio });
         renderRelations();
         drawLines();
         updateLiveScore();
+        saveState();
+        if (had) toast('Bestehende Relation zwischen den beiden wurde ersetzt.');
     }
 
     function renderRelations() {
@@ -571,36 +872,57 @@
         list.innerHTML = '';
         relations.forEach((rel, i) => {
             const pText = rel.type === 'wish' ? `(Prio ${rel.prio})` : '(Trennen)';
-            const color = rel.type === 'wish' ? (rel.prio===1?'#27ae60':rel.prio===2?'#f39c12':'#8e44ad') : '#e74c3c';
-            list.innerHTML += `
-                <div class="list-item" style="color:${color}; font-weight:bold;">
-                    <span>${rel.a} &rarr; ${rel.b} ${pText}</span>
-                    <button onclick="relations.splice(${i}, 1); renderRelations(); drawLines(); updateLiveScore();" style="color:red; padding:2px 5px;">x</button>
-                </div>
-            `;
+            const color = rel.type === 'wish' ? (rel.prio === 1 ? '#27ae60' : rel.prio === 2 ? '#f39c12' : '#8e44ad') : '#e74c3c';
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            item.style.cssText = `color:${color}; font-weight:bold;`;
+            const span = document.createElement('span');
+            span.innerText = `${rel.a} → ${rel.b} ${pText}`;
+            const btn = document.createElement('button');
+            btn.innerText = 'x';
+            btn.style.cssText = 'color:red; padding:2px 5px;';
+            btn.onclick = () => {
+                relations.splice(i, 1);
+                renderRelations(); drawLines(); updateLiveScore(); saveState();
+            };
+            item.appendChild(span);
+            item.appendChild(btn);
+            list.appendChild(item);
         });
     }
 
     function addGroup() {
-        let members = [document.getElementById('g1').value, document.getElementById('g2').value, document.getElementById('g3').value, document.getElementById('g4').value].filter(m => m);
+        let members = ['g1', 'g2', 'g3', 'g4'].map(id => document.getElementById(id).value).filter(m => m);
         members = [...new Set(members)];
-        if(members.length < 2) return alert("Eine Gruppe braucht mindestens 2 Personen.");
+        if (members.length < 2) return toast('Eine Gruppe braucht mindestens 2 Personen.');
+        const key = [...members].sort().join('|');
+        if (groups.some(g => [...g].sort().join('|') === key)) return toast('Diese Gruppe existiert bereits.');
         groups.push(members);
         renderGroups();
         drawLines();
         updateLiveScore();
+        saveState();
     }
 
     function renderGroups() {
         const list = document.getElementById('groupsList');
         list.innerHTML = '';
         groups.forEach((g, i) => {
-            list.innerHTML += `
-                <div class="list-item" style="color:#2980b9; font-weight:bold;">
-                    <span>[Gruppe] ${g.join(', ')}</span>
-                    <button onclick="groups.splice(${i}, 1); renderGroups(); drawLines(); updateLiveScore();" style="color:red; padding:2px 5px;">x</button>
-                </div>
-            `;
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            item.style.cssText = 'color:#2980b9; font-weight:bold;';
+            const span = document.createElement('span');
+            span.innerText = `[Gruppe] ${g.join(', ')}`;
+            const btn = document.createElement('button');
+            btn.innerText = 'x';
+            btn.style.cssText = 'color:red; padding:2px 5px;';
+            btn.onclick = () => {
+                groups.splice(i, 1);
+                renderGroups(); drawLines(); updateLiveScore(); saveState();
+            };
+            item.appendChild(span);
+            item.appendChild(btn);
+            list.appendChild(item);
         });
     }
 
@@ -612,7 +934,7 @@
         const getCoords = (t) => ({ x: (t.c * cellW) + (cellW / 2), y: (t.r * cellH) + (cellH / 2) });
 
         const isHighlighted = (s1, s2) => {
-            if (!highlightedStudent) return true; 
+            if (!highlightedStudent) return true;
             return s1 === highlightedStudent || s2 === highlightedStudent;
         };
 
@@ -623,17 +945,17 @@
             if (tA && tB) allLines.push({ tA, tB, type: rel.type, prio: rel.prio, a: rel.a, b: rel.b, isGroup: false });
         });
         groups.forEach(g => {
-            for(let i=0; i<g.length; i++) {
-                for(let j=i+1; j<g.length; j++) {
+            for (let i = 0; i < g.length; i++) {
+                for (let j = i + 1; j < g.length; j++) {
                     const tA = tables.find(t => t.student === g[i]);
                     const tB = tables.find(t => t.student === g[j]);
-                    if(tA && tB) allLines.push({ tA, tB, isGroup: true, a: g[i], b: g[j] });
+                    if (tA && tB) allLines.push({ tA, tB, isGroup: true, a: g[i], b: g[j] });
                 }
             }
         });
 
         function drawLineSegment(line, isActive) {
-            const alpha = isActive ? 1.0 : 0.05; 
+            const alpha = isActive ? 1.0 : 0.05;
             ctx.beginPath();
             ctx.moveTo(getCoords(line.tA).x, getCoords(line.tA).y);
             ctx.lineTo(getCoords(line.tB).x, getCoords(line.tB).y);
@@ -664,12 +986,12 @@
     function compileRules(config) {
         let compiled = [];
         relations.forEach(r => {
-            let weight = r.type === 'separate' ? -300 : (r.prio === 1 ? config.m_p1 : (r.prio === 2 ? config.m_p2 : config.m_p3));
+            const weight = r.type === 'separate' ? -300 : (r.prio === 1 ? config.m_p1 : (r.prio === 2 ? config.m_p2 : config.m_p3));
             compiled.push({ a: r.a, b: r.b, type: r.type, weight: weight });
         });
         groups.forEach(g => {
-            for(let i=0; i<g.length; i++) {
-                for(let j=i+1; j<g.length; j++) {
+            for (let i = 0; i < g.length; i++) {
+                for (let j = i + 1; j < g.length; j++) {
                     compiled.push({ a: g[i], b: g[j], type: 'group', weight: 800 });
                 }
             }
@@ -679,51 +1001,54 @@
 
     function fastCalculateScore(studentPositions, rules, config) {
         let score = 0;
+        const weights = [0, config.w_neben, config.w_diagonal, config.w_zwischen];
         for (let i = 0; i < rules.length; i++) {
-            let rule = rules[i];
-            let posA = studentPositions[rule.a];
-            let posB = studentPositions[rule.b];
-            
-            if (posA && posB) {
-                let dr = Math.abs(posA.r - posB.r);
-                let dc = Math.abs(posA.c - posB.c);
-                
-                if (rule.type === 'group') {
-                    if (dr <= 1 && dc <= 1) score += rule.weight;
-                } else {
-                    let distScore = 0;
-                    if (dr === 0 && dc === 1) distScore = config.w_neben;
-                    else if (dr === 1 && dc === 1) distScore = config.w_diagonal;
-                    else if ((dr === 0 && dc === 2) || (dr === 1 && dc === 0)) distScore = config.w_zwischen;
-                    
-                    if (distScore > 0) {
-                        if (rule.type === 'separate') score += rule.weight;
-                        else score += (distScore * rule.weight);
-                    }
+            const rule = rules[i];
+            const posA = studentPositions[rule.a];
+            const posB = studentPositions[rule.b];
+            if (!posA || !posB) continue;
+
+            const dr = Math.abs(posA.r - posB.r);
+            const dc = Math.abs(posA.c - posB.c);
+
+            if (rule.type === 'group') {
+                // Volle Punkte bei direkter Nähe, Teilpunkte in Distanz 2 —
+                // damit sind Ketten (nicht nur 2x2-Blöcke) belohnbar
+                if (dr <= 1 && dc <= 1) score += rule.weight;
+                else if (dr <= 2 && dc <= 2) score += rule.weight * 0.4;
+            } else {
+                const distScore = weights[distanceClass(dr, dc)] || 0;
+                if (distScore > 0) {
+                    if (rule.type === 'separate') score += rule.weight;
+                    else score += distScore * rule.weight;
                 }
             }
         }
         return score;
     }
 
-    function updateLiveScore() {
-        const config = {
-            w_neben: parseInt(document.getElementById('w_neben').value) || 4,
-            w_diagonal: parseInt(document.getElementById('w_diagonal').value) || 2,
-            w_zwischen: parseInt(document.getElementById('w_zwischen').value) || 1,
-            m_p1: parseInt(document.getElementById('m_prio1').value) || 3,
-            m_p2: parseInt(document.getElementById('m_prio2').value) || 2,
-            m_p3: parseInt(document.getElementById('m_prio3').value) || 1
+    function currentConfig() {
+        return {
+            w_neben: parseInt(document.getElementById('w_neben').value, 10) || 4,
+            w_diagonal: parseInt(document.getElementById('w_diagonal').value, 10) || 2,
+            w_zwischen: parseInt(document.getElementById('w_zwischen').value, 10) || 1,
+            m_p1: parseInt(document.getElementById('m_prio1').value, 10) || 3,
+            m_p2: parseInt(document.getElementById('m_prio2').value, 10) || 2,
+            m_p3: parseInt(document.getElementById('m_prio3').value, 10) || 1
         };
+    }
+
+    function updateLiveScore() {
+        const config = currentConfig();
         const compiledRules = compileRules(config);
-        
+
         let studentPositions = {};
-        tables.forEach(t => { if(t.student) studentPositions[t.student] = { r: t.r, c: t.c }; });
-        
-        let score = fastCalculateScore(studentPositions, compiledRules, config);
-        
+        tables.forEach(t => { if (t.student) studentPositions[t.student] = { r: t.r, c: t.c }; });
+
+        const score = fastCalculateScore(studentPositions, compiledRules, config);
+
         const scoreEl = document.getElementById('liveScore');
-        if(scoreEl) {
+        if (scoreEl) {
             scoreEl.innerText = score;
             scoreEl.style.color = score < 0 ? '#e74c3c' : (score > 0 ? '#27ae60' : 'var(--secondary)');
         }
@@ -731,31 +1056,27 @@
     }
 
     function generatePlan(fromCurrent = false) {
-        const placedCount = tables.filter(t => t.student && t.pinned).length;
+        if (generating) return;
+
         const availableTables = tables.filter(t => !t.pinned).length;
         const unplacedStudents = students.filter(s => !tables.some(t => t.student === s));
 
-        if(availableTables < unplacedStudents.length) {
-            return alert(`Nicht genug freie Tische! Es fehlen ${unplacedStudents.length - availableTables} Tische.`);
+        if (availableTables < unplacedStudents.length) {
+            return toast(`Nicht genug freie Tische! Es fehlen ${unplacedStudents.length - availableTables} Tische.`);
+        }
+        if (tables.length === 0) {
+            return toast('Lege zuerst Tische an, indem du ins Raster klickst.');
         }
 
-        const config = {
-            w_neben: parseInt(document.getElementById('w_neben').value),
-            w_diagonal: parseInt(document.getElementById('w_diagonal').value),
-            w_zwischen: parseInt(document.getElementById('w_zwischen').value),
-            m_p1: parseInt(document.getElementById('m_prio1').value),
-            m_p2: parseInt(document.getElementById('m_prio2').value),
-            m_p3: parseInt(document.getElementById('m_prio3').value)
-        };
-        
-        const iterations = parseInt(document.getElementById('iterations').value) || 2000;
+        const config = currentConfig();
+        const iterations = Math.max(1, parseInt(document.getElementById('iterations').value, 10) || 2000);
         const algoType = document.getElementById('algoType').value;
         const compiledRules = compileRules(config);
         let allSolutions = [];
 
         let manualSolution = null;
         if (fromCurrent) {
-            let currentScore = updateLiveScore();
+            const currentScore = updateLiveScore();
             manualSolution = { score: currentScore, assignment: tables.map(t => t.student), isManual: true };
         }
 
@@ -765,167 +1086,279 @@
             basePositions[t.student] = { r: t.r, c: t.c };
         });
 
-        for(let v = 0; v < iterations; v++) {
-            let emptyTables = tables.filter(t => !t.pinned).map(t => ({...t})); 
-            let positions = {...basePositions};
+        const unpinnedSeats = tables.filter(t => !t.pinned).map(t => ({ r: t.r, c: t.c }));
 
-            if (fromCurrent) {
-                let unplacedCopy = [...unplacedStudents].sort(() => Math.random() - 0.5);
-                emptyTables.forEach(et => {
-                    let actualTable = tables.find(t => t.r === et.r && t.c === et.c);
-                    if (actualTable.student && !actualTable.pinned) {
-                        et.student = actualTable.student;
-                    } else if (!actualTable.student) {
-                        et.student = unplacedCopy.length > 0 ? unplacedCopy.pop() : null;
+        generating = true;
+        setGeneratingUI(true, 0);
+        pushUndo();
+
+        let v = 0;
+        const CHUNK = 100;
+
+        function runChunk() {
+            const end = Math.min(v + CHUNK, iterations);
+            for (; v < end; v++) {
+                let positions = { ...basePositions };
+                let seats = unpinnedSeats.map(s => ({ r: s.r, c: s.c, student: null }));
+
+                if (fromCurrent) {
+                    let unplacedCopy = [...unplacedStudents].sort(() => Math.random() - 0.5);
+                    seats.forEach(et => {
+                        const actualTable = tables.find(t => t.r === et.r && t.c === et.c);
+                        if (actualTable.student && !actualTable.pinned) {
+                            et.student = actualTable.student;
+                        } else if (!actualTable.student) {
+                            et.student = unplacedCopy.length > 0 ? unplacedCopy.pop() : null;
+                        }
+                        if (et.student) positions[et.student] = { r: et.r, c: et.c };
+                    });
+
+                    const initialSwaps = Math.floor(Math.random() * 4) + 1;
+                    for (let k = 0; k < initialSwaps; k++) {
+                        const idx1 = Math.floor(Math.random() * seats.length);
+                        const idx2 = Math.floor(Math.random() * seats.length);
+                        const s1 = seats[idx1].student;
+                        const s2 = seats[idx2].student;
+                        seats[idx1].student = s2;
+                        seats[idx2].student = s1;
+                        if (s2) positions[s2] = { r: seats[idx1].r, c: seats[idx1].c };
+                        if (s1) positions[s1] = { r: seats[idx2].r, c: seats[idx2].c };
                     }
-                    if(et.student) positions[et.student] = {r: et.r, c: et.c};
+                } else {
+                    let shuffled = [...unpinnedStudents].sort(() => Math.random() - 0.5);
+                    for (let i = 0; i < seats.length; i++) {
+                        const st = shuffled[i] || null;
+                        seats[i].student = st;
+                        if (st) positions[st] = { r: seats[i].r, c: seats[i].c };
+                    }
+                }
+
+                let currentScore = fastCalculateScore(positions, compiledRules, config);
+
+                const doSwap = () => {
+                    let idx1 = Math.floor(Math.random() * seats.length);
+                    let idx2 = Math.floor(Math.random() * seats.length);
+                    if (idx1 === idx2) return null;
+                    const s1 = seats[idx1].student, s2 = seats[idx2].student;
+                    if (s2) positions[s2] = { r: seats[idx1].r, c: seats[idx1].c };
+                    if (s1) positions[s1] = { r: seats[idx2].r, c: seats[idx2].c };
+                    const newScore = fastCalculateScore(positions, compiledRules, config);
+                    return { idx1, idx2, s1, s2, newScore };
+                };
+                const revertSwap = (sw) => {
+                    if (sw.s1) positions[sw.s1] = { r: seats[sw.idx1].r, c: seats[sw.idx1].c };
+                    if (sw.s2) positions[sw.s2] = { r: seats[sw.idx2].r, c: seats[sw.idx2].c };
+                };
+
+                if (algoType === 'hc') {
+                    for (let s = 0; s < 200; s++) {
+                        const sw = doSwap();
+                        if (!sw) continue;
+                        if (sw.newScore >= currentScore) {
+                            currentScore = sw.newScore;
+                            seats[sw.idx1].student = sw.s2;
+                            seats[sw.idx2].student = sw.s1;
+                        } else {
+                            revertSwap(sw);
+                        }
+                    }
+                } else {
+                    // Simulierte Abkühlung: Starttemperatur skaliert mit typischem Score-Beitrag,
+                    // langsame Abkühlung über ~460 Züge pro Restart
+                    let temp = Math.max(20, config.w_neben * config.m_p1 * 5);
+                    const coolingRate = 0.99;
+                    while (temp > 1.0) {
+                        const sw = doSwap();
+                        if (sw) {
+                            const delta = sw.newScore - currentScore;
+                            if (delta >= 0 || Math.random() < Math.exp(delta / temp)) {
+                                currentScore = sw.newScore;
+                                seats[sw.idx1].student = sw.s2;
+                                seats[sw.idx2].student = sw.s1;
+                            } else {
+                                revertSwap(sw);
+                            }
+                        }
+                        temp *= coolingRate;
+                    }
+                }
+
+                let finalAssignment = tables.map(t => {
+                    if (t.pinned) return t.student;
+                    const eT = seats.find(et => et.r === t.r && et.c === t.c);
+                    return eT ? eT.student : null;
                 });
-
-                let initialSwaps = Math.floor(Math.random() * 4) + 1;
-                for(let k=0; k<initialSwaps; k++) {
-                    let idx1 = Math.floor(Math.random() * emptyTables.length);
-                    let idx2 = Math.floor(Math.random() * emptyTables.length);
-                    let s1 = emptyTables[idx1].student;
-                    let s2 = emptyTables[idx2].student;
-                    emptyTables[idx1].student = s2;
-                    emptyTables[idx2].student = s1;
-                    if(s2) positions[s2] = {r: emptyTables[idx1].r, c: emptyTables[idx1].c};
-                    if(s1) positions[s1] = {r: emptyTables[idx2].r, c: emptyTables[idx2].c};
-                }
-            } else {
-                let shuffled = [...unpinnedStudents].sort(() => Math.random() - 0.5);
-                for(let i=0; i < emptyTables.length; i++) {
-                    let st = shuffled[i] || null;
-                    emptyTables[i].student = st;
-                    if(st) positions[st] = { r: emptyTables[i].r, c: emptyTables[i].c };
-                }
+                allSolutions.push({ score: currentScore, assignment: finalAssignment, isManual: false });
             }
 
-            let currentScore = fastCalculateScore(positions, compiledRules, config);
-            
-            if (algoType === 'hc') {
-                for(let s = 0; s < 50; s++) {
-                    let idx1 = Math.floor(Math.random() * emptyTables.length);
-                    let idx2 = Math.floor(Math.random() * emptyTables.length);
-                    if (idx1 === idx2) continue;
-                    let s1 = emptyTables[idx1].student; let s2 = emptyTables[idx2].student;
-                    if(s2) positions[s2] = { r: emptyTables[idx1].r, c: emptyTables[idx1].c };
-                    if(s1) positions[s1] = { r: emptyTables[idx2].r, c: emptyTables[idx2].c };
+            setGeneratingUI(true, v / iterations);
 
-                    let newScore = fastCalculateScore(positions, compiledRules, config);
-                    if(newScore >= currentScore) {
-                        currentScore = newScore;
-                        emptyTables[idx1].student = s2; emptyTables[idx2].student = s1;
-                    } else {
-                        if(s1) positions[s1] = { r: emptyTables[idx1].r, c: emptyTables[idx1].c };
-                        if(s2) positions[s2] = { r: emptyTables[idx2].r, c: emptyTables[idx2].c };
-                    }
-                }
+            if (v < iterations) {
+                setTimeout(runChunk, 0);
             } else {
-                let temp = 100.0;
-                let coolingRate = 0.95;
-                while(temp > 1.0) {
-                    let idx1 = Math.floor(Math.random() * emptyTables.length);
-                    let idx2 = Math.floor(Math.random() * emptyTables.length);
-                    if (idx1 === idx2) continue;
-                    let s1 = emptyTables[idx1].student; let s2 = emptyTables[idx2].student;
-                    
-                    if(s2) positions[s2] = { r: emptyTables[idx1].r, c: emptyTables[idx1].c };
-                    if(s1) positions[s1] = { r: emptyTables[idx2].r, c: emptyTables[idx2].c };
-
-                    let newScore = fastCalculateScore(positions, compiledRules, config);
-                    let delta = newScore - currentScore;
-                    
-                    if(delta >= 0 || Math.random() < Math.exp(delta / temp)) {
-                        currentScore = newScore;
-                        emptyTables[idx1].student = s2; emptyTables[idx2].student = s1;
-                    } else {
-                        if(s1) positions[s1] = { r: emptyTables[idx1].r, c: emptyTables[idx1].c };
-                        if(s2) positions[s2] = { r: emptyTables[idx2].r, c: emptyTables[idx2].c };
-                    }
-                    temp *= coolingRate;
-                }
+                finishGeneration(allSolutions, manualSolution);
             }
-            
-            let finalAssignment = tables.map(t => {
-                if(t.pinned) return t.student;
-                let eT = emptyTables.find(et => et.r === t.r && et.c === t.c);
-                return eT ? eT.student : null;
-            });
-            allSolutions.push({ score: currentScore, assignment: finalAssignment, isManual: false });
         }
+        setTimeout(runChunk, 0);
+    }
 
-        allSolutions.sort((a,b) => b.score - a.score);
+    function setGeneratingUI(active, progress) {
+        document.getElementById('btnGenerate').disabled = active;
+        document.getElementById('btnOptimize').disabled = active;
+        const wrap = document.getElementById('progressWrap');
+        const bar = document.getElementById('progressBar');
+        if (active) {
+            wrap.classList.add('active');
+            bar.style.width = Math.round(progress * 100) + '%';
+            bar.innerText = '';
+        } else {
+            wrap.classList.remove('active');
+            bar.style.width = '0%';
+        }
+    }
+
+    function finishGeneration(allSolutions, manualSolution) {
+        generating = false;
+        setGeneratingUI(false, 1);
+
+        allSolutions.sort((a, b) => b.score - a.score);
         topSolutions = [];
         let seenSet = new Set();
-        
-        if (fromCurrent && manualSolution) {
+
+        if (manualSolution) {
             topSolutions.push(manualSolution);
             seenSet.add(manualSolution.assignment.join('|'));
         }
 
-        for(let sol of allSolutions) {
+        for (let sol of allSolutions) {
             let hash = sol.assignment.join('|');
-            if(!seenSet.has(hash)) {
+            if (!seenSet.has(hash)) {
                 seenSet.add(hash);
                 topSolutions.push(sol);
-                if(topSolutions.length === 3) break;
+                if (topSolutions.length === 3) break;
             }
         }
 
-        if(topSolutions.length > 0) {
+        if (topSolutions.length > 0) {
             currentSolutionIndex = 0;
             document.getElementById('solutionNavigator').classList.add('active');
             applySolution(0);
+            saveState();
         }
     }
 
     function applySolution(index) {
         let bestAssignment = topSolutions[index].assignment;
-        for(let i=0; i<tables.length; i++) {
-            tables[i].student = bestAssignment[i];
+        for (let i = 0; i < tables.length; i++) {
+            if (!tables[i].pinned) tables[i].student = bestAssignment[i];
         }
-        
-        let typeStr = topSolutions[index].isManual ? "Dein Plan" : "Optimiert";
+
+        let typeStr = topSolutions[index].isManual ? 'Dein Plan' : 'Optimiert';
         document.getElementById('solutionInfo').innerText = `Lösung ${index + 1}/${topSolutions.length} (${typeStr}) - Punkte: ${topSolutions[index].score}`;
-        
-        clearSelection(); 
-        renderTables(); 
+
+        clearSelection();
+        renderTables();
     }
 
     function changeSolution(direction) {
         if (topSolutions.length === 0) return;
         currentSolutionIndex += direction;
-        if(currentSolutionIndex >= topSolutions.length) currentSolutionIndex = 0;
-        if(currentSolutionIndex < 0) currentSolutionIndex = topSolutions.length - 1;
+        if (currentSolutionIndex >= topSolutions.length) currentSolutionIndex = 0;
+        if (currentSolutionIndex < 0) currentSolutionIndex = topSolutions.length - 1;
         applySolution(currentSolutionIndex);
+        saveState();
     }
 
     function clearPlan(resetNav = false) {
+        const placed = tables.filter(t => t.student && !t.pinned).length;
+        if (placed > 0 && !confirm(`${placed} Platzierungen löschen? (Gepinnte bleiben erhalten, Strg+Z macht es rückgängig)`)) return;
+        pushUndo();
         tables.forEach(t => { if (!t.pinned) t.student = null; });
-        if(resetNav) {
+        if (resetNav) {
             document.getElementById('solutionNavigator').classList.remove('active');
             topSolutions = [];
         }
         clearSelection();
         renderTables();
+        saveState();
+    }
+
+    // --- PNG-Export ---
+    function exportPNG() {
+        const cellW = 80, cellH = 60;
+        const w = COLS * cellW, h = ROWS * cellH;
+        const off = document.createElement('canvas');
+        off.width = w; off.height = h;
+        const c = off.getContext('2d');
+
+        c.fillStyle = '#ffffff';
+        c.fillRect(0, 0, w, h);
+
+        // Raster
+        c.strokeStyle = '#dddddd';
+        c.setLineDash([3, 3]);
+        for (let r = 0; r <= ROWS; r++) { c.beginPath(); c.moveTo(0, r * cellH); c.lineTo(w, r * cellH); c.stroke(); }
+        for (let col = 0; col <= COLS; col++) { c.beginPath(); c.moveTo(col * cellW, 0); c.lineTo(col * cellW, h); c.stroke(); }
+        c.setLineDash([]);
+
+        // Beziehungslinien
+        const coord = (t) => ({ x: t.c * cellW + cellW / 2, y: t.r * cellH + cellH / 2 });
+        relations.forEach(rel => {
+            const tA = tables.find(t => t.student === rel.a);
+            const tB = tables.find(t => t.student === rel.b);
+            if (!tA || !tB) return;
+            c.beginPath();
+            c.moveTo(coord(tA).x, coord(tA).y);
+            c.lineTo(coord(tB).x, coord(tB).y);
+            if (rel.type === 'separate') { c.strokeStyle = 'rgba(231,76,60,0.8)'; c.setLineDash([6, 6]); }
+            else {
+                c.strokeStyle = rel.prio === 1 ? 'rgba(39,174,96,0.8)' : rel.prio === 2 ? 'rgba(243,156,18,0.8)' : 'rgba(142,68,173,0.8)';
+                c.setLineDash([]);
+            }
+            c.lineWidth = 2;
+            c.stroke();
+        });
+        c.setLineDash([]);
+        groups.forEach(g => {
+            for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) {
+                const tA = tables.find(t => t.student === g[i]);
+                const tB = tables.find(t => t.student === g[j]);
+                if (!tA || !tB) continue;
+                c.beginPath();
+                c.moveTo(coord(tA).x, coord(tA).y);
+                c.lineTo(coord(tB).x, coord(tB).y);
+                c.strokeStyle = 'rgba(41,128,185,0.5)';
+                c.lineWidth = 2;
+                c.stroke();
+            }
+        });
+
+        // Tische
+        tables.forEach(t => {
+            const x = t.c * cellW + 4, y = t.r * cellH + 4;
+            c.fillStyle = t.pinned ? '#e67e22' : '#f1c40f';
+            c.fillRect(x, y, cellW - 8, cellH - 8);
+            c.strokeStyle = t.pinned ? '#d35400' : '#c8a20a';
+            c.lineWidth = 1;
+            c.strokeRect(x, y, cellW - 8, cellH - 8);
+            if (t.student) {
+                c.fillStyle = t.pinned ? '#ffffff' : '#1a1a1a';
+                c.font = 'bold 12px sans-serif';
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillText(t.student, t.c * cellW + cellW / 2, t.r * cellH + cellH / 2);
+            }
+        });
+
+        const a = document.createElement('a');
+        a.href = off.toDataURL('image/png');
+        a.download = 'sitzplan.png';
+        a.click();
     }
 
     // --- Speichern / Laden ---
     function exportData() {
-        const settings = {
-            rows: ROWS,
-            cols: COLS,
-            algo: document.getElementById('algoType').value,
-            w_neben: document.getElementById('w_neben').value,
-            w_diagonal: document.getElementById('w_diagonal').value,
-            w_zwischen: document.getElementById('w_zwischen').value,
-            m_prio1: document.getElementById('m_prio1').value,
-            m_prio2: document.getElementById('m_prio2').value,
-            m_prio3: document.getElementById('m_prio3').value,
-            iterations: document.getElementById('iterations').value
-        };
-        const data = { students, tables, relations, groups, settings };
+        const data = { students, tables, relations, groups, settings: readSettings() };
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
         const dl = document.createElement('a');
         dl.setAttribute("href", dataStr);
@@ -938,37 +1371,67 @@
         if (!file) return;
         const reader = new FileReader();
         reader.onload = function(e) {
-            const data = JSON.parse(e.target.result);
+            let data;
+            try {
+                data = JSON.parse(e.target.result);
+            } catch (err) {
+                toast('Datei ist kein gültiges Sitzplan-JSON.');
+                event.target.value = '';
+                return;
+            }
+            if (!data || (!Array.isArray(data.students) && !Array.isArray(data.tables))) {
+                toast('Datei enthält keinen Sitzplan.');
+                event.target.value = '';
+                return;
+            }
             students = data.students || [];
+            // Duplikate beim Import entfernen
+            students = [...new Set(students)];
             tables = data.tables || [];
             relations = data.relations || [];
             groups = data.groups || [];
-            
-            if(data.settings) {
-                document.getElementById('gridRowsInput').value = data.settings.rows || 8;
-                document.getElementById('gridColsInput').value = data.settings.cols || 10;
-                if(data.settings.algo) document.getElementById('algoType').value = data.settings.algo;
-                document.getElementById('w_neben').value = data.settings.w_neben;
-                document.getElementById('w_diagonal').value = data.settings.w_diagonal || 2;
-                document.getElementById('w_zwischen').value = data.settings.w_zwischen;
-                document.getElementById('m_prio1').value = data.settings.m_prio1;
-                document.getElementById('m_prio2').value = data.settings.m_prio2;
-                document.getElementById('m_prio3').value = data.settings.m_prio3;
-                document.getElementById('iterations').value = data.settings.iterations;
-                
-                updateGridSize(); 
+
+            if (data.settings) {
+                const s = data.settings;
+                const set = (id, v, fallback) => { document.getElementById(id).value = v ?? fallback; };
+                set('gridRowsInput', s.rows, 8);
+                set('gridColsInput', s.cols, 10);
+                if (s.algo) document.getElementById('algoType').value = s.algo;
+                set('w_neben', s.w_neben, 4);
+                set('w_diagonal', s.w_diagonal, 2);
+                set('w_zwischen', s.w_zwischen, 1);
+                set('m_prio1', s.m_prio1, 3);
+                set('m_prio2', s.m_prio2, 2);
+                set('m_prio3', s.m_prio3, 1);
+                set('iterations', s.iterations, 2000);
             }
-            
+            // Rastergröße immer anwenden (auch ohne settings — Begrenzung auf aktuelles Raster)
+            updateGridSize();
+
+            undoStack = [];
             updateSelects();
             renderRelations();
             renderGroups();
             renderTables();
             document.getElementById('solutionNavigator').classList.remove('active');
+            saveState();
+            toast('Sitzplan geladen.');
+            event.target.value = '';
         };
+        reader.onerror = () => toast('Datei konnte nicht gelesen werden.');
         reader.readAsText(file);
     }
 
-    initGrid();
+    // --- Start ---
+    const restored = restoreState();
+    initGrid(false);
+    if (restored) {
+        updateSelects();
+        renderRelations();
+        renderGroups();
+        renderTables();
+        toast('Letzter Stand wiederhergestellt.');
+    }
 </script>
 
 </body>
